@@ -4,6 +4,7 @@ from os import path, listdir
 from os.path import isfile, join
 from types import new_class
 from typing import List
+import re
 from lxml import etree 
 from contextlib import ExitStack
 import sklearn.feature_extraction.text
@@ -22,6 +23,11 @@ BIG_BILLS_PATHS = [path.join(PATH_116_USLM, bill) for bill in (BIG_BILLS + BILLS
 SAMPLE_BILL_PATHS_TRAIN = [join(PATH_116_USLM_TRAIN, f) for f in listdir(PATH_116_USLM) if isfile(join(PATH_116_USLM_TRAIN, f))]
 SAMPLE_BILL_PATHS = [join(PATH_116_USLM, f) for f in listdir(PATH_116_USLM) if isfile(join(PATH_116_USLM, f))]
 
+NAMESPACES = {'uslm': 'http://xml.house.gov/schemas/uslm/1.0'}
+
+
+def get_filepaths(dirpath: str, reMatch = r'.xml$') -> List[str]:
+    return [join(dirpath, f) for f in listdir(dirpath) if (len(re.findall(reMatch, f)) > 0) and isfile(join(dirpath, f))]
 
 def getEnum(section) -> str:
   enumpath = section.xpath('enum')  
@@ -60,8 +66,9 @@ def xml_to_sections(xml_path: str):
         billTree = etree.parse(xml_path)
     except:
         raise Exception('Could not parse bill')
-    sections = billTree.xpath('//section')
+    sections = billTree.xpath('//uslm:section', NAMESPACES)
     if len(sections) == 0:
+        print('No sections found')
         return []
     return [{
             'section_number': getEnum(section) ,
@@ -87,8 +94,9 @@ def xml_to_text(xml_path: str, level: str = 'section', separator: str = '\n*****
         raise Exception('Could not parse bill')
     #return etree.tostring(billTree, method="text", encoding="unicode")
     # Use 'body' for level to get the whole body element
-    sections = billTree.xpath('//'+level)
+    sections = billTree.xpath('//uslm:'+level, namespaces=NAMESPACES)
     if len(sections) == 0:
+        print('No sections found')
         return '' 
     return separator.join([etree.tostring(section, method="text", encoding="unicode") for section in sections])
 
@@ -152,6 +160,15 @@ def train_hashing_vectorizer(train_data: List[str], ngram_size: int = 4):
 
 def test_hashing_vectorizer(vectorizer: HashingVectorizer, test_data: List[str]):
     return vectorizer.transform(test_data)
+
+def xml_samples_to_text(dirpath: str, level: str = 'section', separator: str = '\n*****\n'):
+    """
+    Converts xml files in a directory to txt files
+    """
+    xfiles = get_filepaths(dirpath)
+    for xfile in xfiles:
+        with open(xfile.replace('.xml', f'-{level}s.txt'), 'w') as f:
+            f.write(xml_to_text(xfile, level=level, separator=separator))
 
 # TODO: Add a function to parse the bill (text) into paragraphs 
 
