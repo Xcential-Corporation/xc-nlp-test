@@ -42,6 +42,10 @@ The similarity algorithm should be *fast* in calculating similarity between docu
 
 The matching accuracy between sections should be as accurate as possible, given the desire for fast pairwise performance.
 
+### Samples
+
+Sample XML files (enrolled bills) can be found in the `samples` directory, in `samples/congress/116/uslm`. A text version of the samples, with each section separated by `/n*****/n` is found in `samples/congress/116/txt/`.
+
 ## Approaches
 
 ### Ngram vector
