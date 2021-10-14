@@ -77,7 +77,7 @@ def xml_to_sections(xml_path: str):
         } 
         for section in sections ]
 
-def xml_to_text(xml_path: str) -> str:
+def xml_to_text(xml_path: str, level: str = 'section', separator: str = '\n*****\n') -> str:
     """
     Parses the xml file and returns the text of the body element, if any
     """
@@ -85,11 +85,12 @@ def xml_to_text(xml_path: str) -> str:
         billTree = etree.parse(xml_path)
     except:
         raise Exception('Could not parse bill')
-    return etree.tostring(billTree, method="text", encoding="unicode")
-    bodies = billTree.xpath('//body')
+    #return etree.tostring(billTree, method="text", encoding="unicode")
+    # Use 'body' for level to get the whole body element
+    sections = billTree.xpath('//'+level)
     if len(sections) == 0:
         return '' 
-    return etree.tostring(bodies[0], method="text", encoding="unicode"),
+    return separator.join([etree.tostring(section, method="text", encoding="unicode") for section in sections])
 
 def xml_to_vect(xml_paths: List[str], ngram_size: int = 4):
     """
@@ -114,7 +115,7 @@ def get_combined_vocabs(xml_paths: List[str] = SAMPLE_BILL_PATHS, ngram_size: in
     """
     return xml_to_vect(xml_paths, ngram_size=ngram_size)
 
-def getSampleText():
+def getSampleText(level = 'body'):
     return xml_to_text(BIG_BILLS_PATHS[0])
 
 def transform_text(text: str, vocab: dict, ngram_size: int = 4):
