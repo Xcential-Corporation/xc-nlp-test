@@ -1,0 +1,5 @@
+lxml
+sklearn
+nltk
+scipy
+prefect
