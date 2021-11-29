@@ -151,22 +151,129 @@ def extract_transform_load_bills(bill_files):
 def vectorize_corpus(corpus_data, output_filename_prefix):
     print(f'Creating {output_filename_prefix} vectorization')
 
-    sec_tfidf_vectorizer = TfidfVectorizer(ngram_range=(4,4), tokenizer=RegexpTokenizer(r"\w+").tokenize, lowercase=True)
-    #Fit tfidf vectorize instance on section level corpus
-    tv_section_matrix = sec_tfidf_vectorizer.fit_transform(corpus_data)
+    tfidf_vectorizer = TfidfVectorizer(ngram_range=(4,4), tokenizer=RegexpTokenizer(r"\w+").tokenize, lowercase=True)
 
-    # save tfidf vectorize instance for only_doc_data
+    tv_section_matrix = tfidf_vectorizer.fit_transform(corpus_data)
+
     pickle.dump(tfidf_vectorizer, open(f'{output_filename_prefix}_tfidf_vectorizer.pickel', "wb"))
-    # load tfidf vectorize instance for only_doc_data
-    tfidf_vectorizer = pickle.load(open(f'{output_filename_prefix}_tfidf_vectorizer.pickel', "rb"))
 
     return tfidf_vectorizer
+
+
+
+# compute cosine pairwise similarity
+def cosine_pairwise_sim(a_vectorized, b_vectorized):
+    
+    #record time for computing similarity 
+    start = time.time()
+
+    sim_score =  cosine_similarity(a_vectorized, b_vectorized)
+
+    done = time.time()
+    elapsed = done - start
+    return elapsed, sim_score
+
+
+#create list response
+def create_list_response(A_doc_name, B_doc_name, doc_sim_score, sec_doc_sim_score):
+    
+    #record time for creating list response
+    start = time.time()
+    
+    #create result list
+    res_list = []
+
+    #create empty list
+    temp=[]
+    temp.append("ORIGINAL DOCUMENT ID: " + A_doc_name)
+    temp.append("MATCHED DOCUMENT ID: " + B_doc_name)
+    temp.append("DOCUMENT SIMILARITY SCORE: " + str(doc_sim_score[0][0]))
+
+    #iterate over sec_doc_sim_score list 
+    for i, section_score_list in enumerate(sec_doc_sim_score):
+        
+        #add original document sentence id number
+        temp.append("ORIGINAL SENTENCE ID: " + str(i+1))
+           
+        #sort similarity score of sections list
+        section_score_list = list(enumerate(section_score_list))
+        sorted_section_score_list = sorted(section_score_list, key=lambda x: x[1], reverse=True)
+        
+        #iterate over section level score only 
+        for j, sim_score in sorted_section_score_list:
+            temp.append({"MATCHED DOCUMENT ID":  B_doc_name, "MATCHED SENTENCE ID": j+1 , "SENTENCE SIMILARITY SCORE":  sim_score})
+
+    res_list.append(temp)
+    
+    
+    done = time.time()
+    elapsed = done - start
+    
+    return elapsed, res_list
+
+
+
+#transform document into vectorized space
+def document_tfidf_vectorized_transformation(document, doc_tfidf_vectorizer):
+    doc_vectorized = doc_tfidf_vectorizer.transform([document])
+    return doc_vectorized
+
+def section_doc_tfidf_vectorized_transformation(section_doc, sec_tfidf_vectorizer):
+    section_doc_vectorized = sec_tfidf_vectorizer.transform(section_doc)
+    return section_doc_vectorized
+
+@task(log_stdout=True)
+def calculate_bill_similarity(doc_corpus_data, doc_tfidf_vectorizer, section_corpus_data, sec_tfidf_vectorizer):
+    section_corpus_data = open("tv_section_corpus_data.pickel", "rb")
+    doc_corpus_data = open("tv_doc_corpus_data.pickel", "rb")
+    doc_tfidf_vectorizer = open("document_tfidf_vectorizer.pickel", "rb")
+    sec_tfidf_vectorizer = open("section_tfidf_vectorizer.pickel", "rb")
+
+    section_corpus_data = pickle.load(section_corpus_data)
+    doc_corpus_data = pickle.load(doc_corpus_data)
+    doc_tfidf_vectorizer = pickle.load(doc_tfidf_vectorizer)
+    sec_tfidf_vectorizer = pickle.load(sec_tfidf_vectorizer)
+    
+    logger = prefect.context.get("logger")
+
+    logger.info("Starting calc bill similarity.")
+    logger.warning("A warning message.")
+    print('Calculating bill similarity')
+
+    #pick any Document A & any Document B from data lists (at least that have more than 1 section)
+    A_doc_name = 'BILLS-117hr1319enr'
+    B_doc_name = 'BILLS-117hr1319eh'
+
+    A_doc = [i[1] for i in doc_corpus_data if A_doc_name ==i[0]][0]
+    B_doc = [i[1] for i in doc_corpus_data if B_doc_name ==i[0]][0]
+
+    A_section_doc = [i[2] for i in section_corpus_data if A_doc_name ==i[0]]
+    B_section_doc = [i[2] for i in section_corpus_data if B_doc_name ==i[0]]
+
+    #transform document A content and document B content
+    A_doc_vectorized = document_tfidf_vectorized_transformation(A_doc, doc_tfidf_vectorizer)
+    B_doc_vectorized = document_tfidf_vectorized_transformation(B_doc, doc_tfidf_vectorizer)
+    #transform document A section content and  document B section content
+    A_section_doc_vectorized = section_doc_tfidf_vectorized_transformation(A_section_doc, sec_tfidf_vectorizer)
+    B_section_doc_vectorized = section_doc_tfidf_vectorized_transformation(B_section_doc, sec_tfidf_vectorizer)
+
+    elapsed_1, doc_sim_score = cosine_pairwise_sim(A_doc_vectorized, B_doc_vectorized)
+
+    print('Scores and timing')
+    print(elapsed_1, doc_sim_score)
+
+    elapsed_2, sec_doc_sim_score = cosine_pairwise_sim(A_section_doc_vectorized, B_section_doc_vectorized)
+
+    print(elapsed_2, sec_doc_sim_score)
+
 
 
 with Flow("Training", executor=LocalDaskExecutor()) as flow:
     file_paths = get_bill_file_paths([PATH_117_USLM, PATH_116_USLM])
     bill_data = extract_transform_load_bills(file_paths)
-    vectorize_corpus(bill_data[0], "document")
-    vectorize_corpus(bill_data[1], "section")
+    doc_vectors = vectorize_corpus(bill_data[0], "document")
+    section_vectors = vectorize_corpus(bill_data[1], "section")
+    calculate_bill_similarity(bill_data[0], doc_vectors, bill_data[1], section_vectors)
+
 
 flow.register(project_name="BillSimilarityEngine")
