@@ -113,7 +113,7 @@ def extract_transform_load_bills(bill_files):
         bill_doc_file = bill_files[i]
         #parse xml into sections
         secs = xml_to_sections(bill_doc_file)
-        #check  of sections should be 1 or more than 1
+
         if(len(secs)>0):  
             #intialize string variable for document content
             doc_content = ""
@@ -222,6 +222,8 @@ def section_doc_tfidf_vectorized_transformation(section_doc, sec_tfidf_vectorize
     section_doc_vectorized = sec_tfidf_vectorizer.transform(section_doc)
     return section_doc_vectorized
 
+
+
 @task(log_stdout=True)
 def calculate_bill_similarity(doc_corpus_data, doc_tfidf_vectorizer, section_corpus_data, sec_tfidf_vectorizer):
     section_corpus_data = open("tv_section_corpus_data.pickel", "rb")
@@ -258,13 +260,7 @@ def calculate_bill_similarity(doc_corpus_data, doc_tfidf_vectorizer, section_cor
     B_section_doc_vectorized = section_doc_tfidf_vectorized_transformation(B_section_doc, sec_tfidf_vectorizer)
 
     elapsed_1, doc_sim_score = cosine_pairwise_sim(A_doc_vectorized, B_doc_vectorized)
-
-    print('Scores and timing')
-    print(elapsed_1, doc_sim_score)
-
     elapsed_2, sec_doc_sim_score = cosine_pairwise_sim(A_section_doc_vectorized, B_section_doc_vectorized)
-
-    print(elapsed_2, sec_doc_sim_score)
 
 
 
