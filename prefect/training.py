@@ -5,31 +5,20 @@ import pickle
 import re, string
 import os
 from os import path, listdir
-from pathlib import Path
 from os.path import isfile, join
-from types import new_class
-from typing import List
-from contextlib import ExitStack
+from pathlib import Path
 from lxml import etree 
-import sklearn.feature_extraction.text
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from nltk.tokenize import PunktSentenceTokenizer, RegexpTokenizer, TreebankWordTokenizer
-from scipy.spatial.distance import cosine
+from nltk.tokenize import RegexpTokenizer
 import prefect
 from prefect import task, Flow, Parameter
 from prefect.executors import LocalDaskExecutor
 
-
-
-# Among the larger bills is samples/congress/116/BILLS-116s1790enr.xml (~ 10MB)
-
 PATH_116_USLM = '../samples/congress/116/uslm'
 PATH_117_USLM = '../samples/congress/117/uslm'
 
-
 NAMESPACES = {'uslm': 'http://xml.house.gov/schemas/uslm/1.0'}
-
 
 def getEnum(section) -> str:
   enumpath = section.xpath('enum')  
@@ -129,9 +118,6 @@ def extract_transform_load_bills(bill_files):
         else:
             print("No sections found")
 
-    print(doc_corpus_data[4])
-    print(section_corpus_data[4])
-
     #get only whole document content from doc_corpus_data list
     only_doc_data = [row[1] for row in doc_corpus_data]
     #get only section content from section_corpus_data list
@@ -158,8 +144,6 @@ def vectorize_corpus(corpus_data, output_filename_prefix):
     pickle.dump(tfidf_vectorizer, open(f'{output_filename_prefix}_tfidf_vectorizer.pickel', "wb"))
 
     return tfidf_vectorizer
-
-
 
 # compute cosine pairwise similarity
 def cosine_pairwise_sim(a_vectorized, b_vectorized):
@@ -211,8 +195,6 @@ def create_list_response(A_doc_name, B_doc_name, doc_sim_score, sec_doc_sim_scor
     
     return elapsed, res_list
 
-
-
 #transform document into vectorized space
 def document_tfidf_vectorized_transformation(document, doc_tfidf_vectorizer):
     doc_vectorized = doc_tfidf_vectorizer.transform([document])
@@ -223,12 +205,11 @@ def section_doc_tfidf_vectorized_transformation(section_doc, sec_tfidf_vectorize
     return section_doc_vectorized
 
 
-
 @task(log_stdout=True)
 def calculate_bill_similarity(doc_corpus_data, doc_tfidf_vectorizer, section_corpus_data, sec_tfidf_vectorizer):
-    section_corpus_data = open("tv_section_corpus_data.pickel", "rb")
     doc_corpus_data = open("tv_doc_corpus_data.pickel", "rb")
     doc_tfidf_vectorizer = open("document_tfidf_vectorizer.pickel", "rb")
+    section_corpus_data = open("tv_section_corpus_data.pickel", "rb")
     sec_tfidf_vectorizer = open("section_tfidf_vectorizer.pickel", "rb")
 
     section_corpus_data = pickle.load(section_corpus_data)
@@ -262,14 +243,11 @@ def calculate_bill_similarity(doc_corpus_data, doc_tfidf_vectorizer, section_cor
     elapsed_1, doc_sim_score = cosine_pairwise_sim(A_doc_vectorized, B_doc_vectorized)
     elapsed_2, sec_doc_sim_score = cosine_pairwise_sim(A_section_doc_vectorized, B_section_doc_vectorized)
 
-
-
 with Flow("Training", executor=LocalDaskExecutor()) as flow:
     file_paths = get_bill_file_paths([PATH_117_USLM, PATH_116_USLM])
     bill_data = extract_transform_load_bills(file_paths)
     doc_vectors = vectorize_corpus(bill_data[0], "document")
     section_vectors = vectorize_corpus(bill_data[1], "section")
     calculate_bill_similarity(bill_data[0], doc_vectors, bill_data[1], section_vectors)
-
-
+    
 flow.register(project_name="BillSimilarityEngine")

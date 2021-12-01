@@ -1,14 +1,37 @@
 # Startup instructions
 
+### Install requirements
+```
+pip install -r requirements.txt
+```
+
+### Bring up the docker containers
 ```
 docker-compose up
+```
+
+### Set up Prefect
+```
 prefect backend server
 prefect create project BillSimilarityEngine 
 prefect server create-tenant --name default --slug default
+```
+
+
+### Register
+
+Prefect requires you to register your flows for versioning and scheduling purposes. `training.py` contains a call to `prefect.register`. To register the training flow with Prefect:
+
+```
 python3 training.py
+```
+
+Every time you make changes to a flow, you have to run `python3 training.py` to register the new version of your flow. 
+
+To enable parallelization, Prefect flows are run by agents that are decoupled from its UI/blackend. To start an agent local to your machine:
+```
 prefect agent local start
 ```
 
-The UI will be available on localhost:8080.
+The UI will be available on localhost:8080. You can navigate there, find the "Training" flow, and run it.
 
-Every time you make changes to a flow, you have to run `python3 training.py` to register the new changes to Prefect.
