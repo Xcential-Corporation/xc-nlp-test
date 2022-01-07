@@ -13,8 +13,8 @@ docker-compose up
 ### Set up Prefect
 ```
 prefect backend server
-prefect create project BillSimilarityEngine 
 prefect server create-tenant --name default --slug default
+prefect create project BillSimilarityEngine 
 ```
 
 
@@ -23,7 +23,7 @@ prefect server create-tenant --name default --slug default
 Prefect requires you to register your flows for versioning and scheduling purposes. `training.py` contains a call to `prefect.register`. To register the training flow with Prefect:
 
 ```
-python3 training.py
+python training.py
 ```
 
 Every time you make changes to a flow, you have to run `python3 training.py` to register the new version of your flow. 

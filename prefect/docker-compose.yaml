@@ -2,6 +2,15 @@ networks:
   prefect-server:
     name: prefect-server
 services:
+  billdata:
+    # Official Postgres image from DockerHub (we use the last version)
+    image: "arihersh/billsim-pgsql:latest"
+    volumes:
+      - billdata:/var/lib/postgresql/data
+    ports:
+      - 5433:5432
+    environment:
+      POSTGRES_PASSWORD: postgres # The PostgreSQL password (useful to connect to the database)
   apollo:
     command: bash -c "./post-start.sh && npm run serve"
     depends_on:
@@ -129,4 +138,6 @@ services:
     - 127.0.0.1:8080:8080/tcp
     restart: always
 version: '3.5'
+volumes:
+  billdata:
 
