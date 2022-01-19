@@ -17,7 +17,6 @@ prefect server create-tenant --name default --slug default
 prefect create project BillSimilarityEngine 
 ```
 
-
 ### Register
 
 Prefect requires you to register your flows for versioning and scheduling purposes. Our flow files contain a call to `prefect.register` as their last line of code, so you just have to run the file to register the flow with Prefect each time you make a change:
