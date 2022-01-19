@@ -21,73 +21,66 @@ from sqlmodel import create_engine
 
 
 @task(log_stdout=True)
+
 def get_bills_to_compare():
+    return [["117hres158ih",	["117hres149ih"]], ["117hr1768ih",	["117s1328is"]], ["117hres318ih",	["117sres17is"]], ["117sres356is",	["117hres343ih"]], ["117s2563is",	["117hr4876ih"]], ["117s1816is",	["117hr3540ih"]], ["117hr3291ih",	["117hr3684eh"]], ["115hr4275ih",	["115hr4275rfs"]], ["117s2351is",	["117hr4459ih"]], ["117s2766is",	["117hr5466ih"]], ["116hr8939ih",	["116s160is"]], ["115hr6705ih",	["115hr3106ih"]], ["117s1588is",	["117hr263ih"]], ["117hr1992ih",	["117s799is"]], ["117s2685is",	["117hr4041ih"]], ["116hr2812ih",	["116hr2709ih"]], ["116sres178is", ["116hres319ih"]], ["110s1358is",	["110hr349ih"]], ["117hr2763ih",	["117s1322is"]]]
 
-    postgres_url = f"postgresql://postgres:postgres@localhost:5433"
 
-    engine = create_engine(postgres_url, echo=False)
 
-    SessionLocal = sessionmaker(autocommit=False,
-                                autoflush=False,
-                                expire_on_commit=False,
-                            bind=engine)
-                            
-    query = ("SELECT billtobill.bill_id, billtobill.bill_to_id, billtobill.score_es, " 
-        "bill1.billnumber AS bill1number, bill1.version AS bill1version, "
-        "bill2.billnumber as bill2number, bill2.version AS bill2version " 
-        "FROM billtobill "
-        "LEFT JOIN bill AS bill1 ON billtobill.bill_id = bill1.id "
-        "LEFT JOIN bill AS bill2 ON billtobill.bill_to_id = bill2.id "
-        "WHERE billtobill.score_es IS NOT NULL " 
-        "ORDER BY billtobill.bill_id ASC, billtobill.score_es DESC;")
+# def get_bills_to_compare():
 
-    rs = SessionLocal().execute(query)
-    results = rs.fetchall()
+#     postgres_url = f"postgresql://postgres:postgres@localhost:5433"
 
-    print("Number of records with value for ES score: ", len(results))
-    # group by bill_id
-    bill_data_obj = {}
-    for result in results:
-        score_es = result[2]
-        bill1numberversion = result[3] + result[4]
-        bill2numberversion = result[5] + result[6]
+#     engine = create_engine(postgres_url, echo=False)
 
-        # TODO: add other docs to corpus and vector files
-        # if (bill1numberversion.startswith('116') or bill1numberversion.startswith('117')) and (bill2numberversion.startswith('116') or bill2numberversion.startswith('117')):
-        if not bill1numberversion in bill_data_obj.keys():
-            bill_data_obj[bill1numberversion] = []
-        # Format results like so: { '116hr5001ih' : [['116hr50002ih', 631.2436789999999], ['117hr333enr', 43.4343]] }
-        bill_data_obj[bill1numberversion].append([bill2numberversion, score_es])
+#     SessionLocal = sessionmaker(autocommit=False,
+#                                 autoflush=False,
+#                                 expire_on_commit=False,
+#                             bind=engine)
 
-    # keep only the top 30 values for es_score for each bill_id  
-    new_bill_data_obj = {}
+#     query = ("SELECT billtobill.bill_id, billtobill.bill_to_id, billtobill.score_es, " 
+#         "bill1.billnumber AS bill1number, bill1.version AS bill1version, "
+#         "bill2.billnumber as bill2number, bill2.version AS bill2version " 
+#         "FROM billtobill "
+#         "LEFT JOIN bill AS bill1 ON billtobill.bill_id = bill1.id "
+#         "LEFT JOIN bill AS bill2 ON billtobill.bill_to_id = bill2.id "
+#         "WHERE billtobill.score_es IS NOT NULL " 
+#         "ORDER BY billtobill.bill_id ASC, billtobill.score_es DESC;")
 
-    for key, value in bill_data_obj.items():
-        if len(value) < 30:
-            new_bill_data_obj[key] = value
-        else:
-            new_bill_data_obj[key] = value[0:30]
+#     rs = SessionLocal().execute(query)
+#     results = rs.fetchall()
+
+#     print("Number of records with value for ES score: ", len(results))
+#     # group by bill_id
+#     bill_data_obj = {}
+#     for result in results:
+#         score_es = result[2]
+#         bill1numberversion = result[3] + result[4]
+#         bill2numberversion = result[5] + result[6]
+
+#         if not bill1numberversion in bill_data_obj.keys():
+#             bill_data_obj[bill1numberversion] = []
+
+#         # Format results like so: { '116hr5001ih' : [['116hr50002ih', 631.2436789999999], ['117hr333enr', 43.4343]] }
+#         bill_data_obj[bill1numberversion].append([bill2numberversion, score_es])
+
+#     # keep only the top 30 values for es_score for each bill_id  
+#     bills_to_compare = []
+
+#     for bill_number_version, bill_list in bill_data_obj.items():
+#         if len(bill_list) < 30:
+#             bills_to_compare.append([ bill_number_version, bill_list ])
+#         else:
+#             bills_to_compare.append([bill_number_version, bill_list[0:30]])
     
-    count = 0
-    for val in new_bill_data_obj.values():
-        count = count + len(val)
+#     count = 0
+#     for group in bills_to_compare:
+#         count = count + len(group[1])
 
-
-    print("Number of bills to compare: ", len(new_bill_data_obj.keys()))
-    print("Total number of comparisons to run: ", count)
+#     print("Number of bills to compare: ", len(bills_to_compare))
+#     print("Total number of comparisons to run: ", count)
     
-    new_new_bill_data_obj = {}
-
-    # TODO: remove, only take 30 bills to compare for testing
-    bill_A_count = 0
-    bill_B_count = 0
-    for key, value in new_bill_data_obj.items():
-        if bill_A_count < 10:
-            new_new_bill_data_obj[key] = value
-            bill_A_count += 1
-            bill_B_count += len(value)
-
-    return new_new_bill_data_obj
+#     return bills_to_compare
 
 
 
@@ -111,8 +104,11 @@ def cosine_pairwise_sim(a_vectorized, b_vectorized):
     elapsed = done - start
     return elapsed, sim_score
 
+
 @task(log_stdout=True)
-def calculate_bill_similarity(bill_data_obj):
+def calculate_bill_similarity(bills_to_compare):
+
+    # expects format [["117hr433ih", ["116hr435inh", "115hrenh"]],["115hr11enr", ["117hr122inh", "117hr75ih"]]]
     doc_corpus_data = open("tv_doc_corpus_data.pickel", "rb")
     doc_tfidf_vectorizer = open("document_tfidf_vectorizer.pickel", "rb")
     section_corpus_data = open("tv_section_corpus_data.pickel", "rb")
@@ -122,16 +118,14 @@ def calculate_bill_similarity(bill_data_obj):
     doc_corpus_data = pickle.load(doc_corpus_data)
     doc_tfidf_vectorizer = pickle.load(doc_tfidf_vectorizer)
     sec_tfidf_vectorizer = pickle.load(sec_tfidf_vectorizer)
-    
-    start = time.time()
 
     skip_count = 0
-    complete_count = 0
 
-    for bill_A, bills_to_compare_list in bill_data_obj.items():
+    for pair in bills_to_compare:
+        bill_A = pair[0]
+        bills_to_compare_list = pair[1]
         for bill_info in bills_to_compare_list:  
             bill_B = bill_info[0]
-
             print("Running comparison: ", bill_A, " ", bill_B)
 
             #pick any Document A & any Document B from data lists (at least that have more than 1 section)
@@ -153,7 +147,7 @@ def calculate_bill_similarity(bill_data_obj):
             elapsed_1, from_doc_similarity = cosine_pairwise_sim(A_doc_vectorized, B_doc_vectorized)
 
             # save to db
-            ids = utils_db.get_bill_ids([bill_A, bill_B])
+            ids = utils_db.get_bill_ids(billnumber_versions=[bill_A, bill_B], db=SessionLocal2())
 
             if len(ids) == 2 and ids[bill_A] != ids[bill_B]:
                 print("Both bills found. Saving.")
@@ -170,11 +164,11 @@ def calculate_bill_similarity(bill_data_obj):
                     bill_to_id= bill_to_id
                 )
 
-                btb = utils_db.save_bill_to_bill(bill_to_bill_model= bill_to_bill_new)
-                complete_count += 1
+                btb = utils_db.save_bill_to_bill(bill_to_bill_model= bill_to_bill_new, db=SessionLocal())
 
 with Flow("Compare ES-related bills", executor=LocalDaskExecutor()) as flow:
     bills_to_compare = get_bills_to_compare()
     calculate_bill_similarity(bills_to_compare)
+
     
 flow.register(project_name="BillSimilarityEngine")
