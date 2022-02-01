@@ -7,7 +7,6 @@ import os
 from os import path, listdir
 from pathlib import Path
 from os.path import isfile, join
-from types import new_class
 from typing import List
 from lxml import etree 
 from contextlib import ExitStack
@@ -35,21 +34,15 @@ SAMPLE_BILL_PATHS = [join(PATH_117_USLM, f) for f in listdir(PATH_117_USLM) if i
 
 NAMESPACES = {'uslm': 'http://xml.house.gov/schemas/uslm/1.0'}
 
-def text_cleaning(text):
-    """
-    Clean text
-    """
-    text = str(text).lower()
-    text = re.sub(r'\[.*?\]', '', text)
-    text = re.sub(r'https?://\S+|www\.\S+', '', text)
-    text = re.sub(r'<.*?>+', '', text)
-    text = re.sub(r'[%s]' % re.escape(string.punctuation), '', text)
-    text = re.sub(r'\n', '', text)
-    text = re.sub(r'\w*\d\w*', '', text)
-    return text
 
 def get_filepaths(dirpath: str, reMatch = r'.xml$') -> List[str]:
     return [join(dirpath, f) for f in listdir(dirpath) if (len(re.findall(reMatch, f)) > 0) and isfile(join(dirpath, f))]
+
+def getId(section) -> str:
+  sec_id = section.get('id')  
+  if len(sec_id) > 0:
+    return sec_id 
+  return ''
 
 def getEnum(section) -> str:
   enumpath = section.xpath('enum')  
@@ -62,7 +55,6 @@ def getHeader(section) -> str:
   if len(headerpath) > 0:
     return headerpath[0].text
   return ''
-
 
 def text_to_vect(txt: str , ngram_size: int = 4):
     """
@@ -86,7 +78,7 @@ def xml_to_sections(xml_path: str):
     Parses the xml file into sections 
     """
     try:
-        billTree = etree.parse(xml_path)
+        billTree = etree.parse(xml_path, etree.XMLParser(recover=True))
     except:
         raise Exception('Could not parse bill')
     sections = billTree.xpath('//uslm:section', namespaces=NAMESPACES)
@@ -94,12 +86,14 @@ def xml_to_sections(xml_path: str):
         print('No sections found')
         return []
     return [{
+            'section_id': getId(section) ,
             'section_number': getEnum(section) ,
             'section_header':  getHeader(section),
             'section_text': etree.tostring(section, method="text", encoding="unicode"),
             'section_xml': etree.tostring(section, method="xml", encoding="unicode")
         } if (section.xpath('header') and len(section.xpath('header')) > 0  and section.xpath('enum') and len(section.xpath('enum'))>0) else
         {
+            'section_id': getId(section) ,
             'section_number': '',
             'section_header': '', 
             'section_text': etree.tostring(section, method="text", encoding="unicode"),
@@ -139,6 +133,12 @@ def combine_vocabs(vocabs: List[CountVectorizer]):
     vocab_keys = list(set([list(v.vocabulary_.keys()) for v in vocabs]))
     vocab = {vocab_key: str(i) for i, vocab_key in enumerate(vocab_keys)}
     return vocab
+
+def get_combined_vocabs(xml_paths: List[str] = SAMPLE_BILL_PATHS, ngram_size: int = 4):
+    """
+    Gets the combined vocabulary of all the xml files
+    """
+    return xml_to_vect(xml_paths, ngram_size=ngram_size)
 
 def getSampleText(level = 'body'):
     return xml_to_text(BIG_BILLS_PATHS[0])
@@ -187,7 +187,71 @@ def xml_samples_to_text(dirpath: str, level: str = 'section', separator: str = '
         with open(xfile.replace('.xml', f'-{level}s.txt'), 'w') as f:
             f.write(xml_to_text(xfile, level=level, separator=separator))
 
-# TODO: Add a function to parse the bill (text) into paragraphs 
+#clean text 
+def text_cleaning(text):
+    text = str(text).lower()
+    text = re.sub('\[.*?\]', '', text)
+    text = re.sub('https?://\S+|www\.\S+', '', text)
+    text = re.sub('<.*?>+', '', text)
+    text = re.sub('[%s]' % re.escape(string.punctuation), '', text)
+    text = re.sub('\n', '', text)
+    text = re.sub('\w*\d\w*', '', text)
+    return text
 
-# TODO: create a streaming hash vectorizer. See 
-# https://scikit-learn.org/stable/auto_examples/applications/plot_out_of_core_classification.html#sphx-glr-auto-examples-applications-plot-out-of-core-classification-py
+def getBillFiles(basePath=PATH_117_USLM):
+    # get all xml files from data directory for parsing
+    return [f for f in os.listdir(basePath) if f.endswith('.xml')]
+
+def getDocData(basePath=PATH_117_USLM):
+    doc_corpus_data=[]
+    #iterate over all bill files
+    bill_files = getBillFiles()
+    if bill_files is None:
+        return doc_corpus_data
+
+    for bill_doc_file in bill_files:
+    
+        #parse xml into sections
+        secs = xml_to_sections(os.path.join(PATH_117_USLM, bill_doc_file))
+    
+        if(len(secs)>0):  
+            #intialize string variable for document content
+            doc_content = ""
+        
+            #iterate over all parsed section text of bill doc file
+            for _, section in enumerate(secs):  
+            
+                #text cleaning applied on each section text
+                sec_text = text_cleaning(section['section_text'])
+            
+                #concatenate section text to doc content 
+                doc_content = doc_content + sec_text + " "
+            doc_corpus_data.append([Path(bill_doc_file).stem[:], doc_content])
+    
+
+def getDocSectionData(basePath=PATH_117_USLM):
+    section_corpus_data = []
+    #iterate over all bill files
+    bill_files = getBillFiles()
+    if bill_files is None:
+        return section_corpus_data
+
+    for bill_doc_file in bill_files:
+    
+        #parse xml into sections
+        secs = xml_to_sections(os.path.join(basePath, bill_doc_file))
+    
+        if(len(secs)>0):  
+            #intialize string variable for document content
+            doc_content = ""
+        
+            #iterate over all parsed section text of bill doc file
+            for section in secs:  
+            
+                #text cleaning applied on each section text
+                sec_text = text_cleaning(section['section_text'])
+            
+                #concatenate section text to doc content 
+                doc_content = doc_content + sec_text + " "
+                section_corpus_data.append([Path(bill_doc_file).stem[:], section['section_id'], sec_text ])
+    return section_corpus_data
