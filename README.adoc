@@ -1,100 +1,15 @@
-:toc:
-
-# Similarity metrics for bill files
-
-## Objectives
-
-The objective of this repository is to develop and test approaches to measuring similarity between bill documents and fragments of bill documents (sections or paragraphs). The `samples` directory contains sample documents, mostly in XML format. The full corpus contains > 50,000 documents and can be provided, if necessary.
-
-For documents A and B, we want to develop an algorithm to:
-
-1. Match sections in document A to sections in the document B. Each section in document A will match one section in Document B or have no match.
-2. Measure pairwise similarity between sections, which can be reported as a percentage or a number between 0 and 1.
-3. Measure pairwise similarity between documents, which can be reported as a percentage or a number between 0 and 1.
-
-Sections:: a 'section' may be defined as the text in a 'section' element of the XML, or as paragraphs separated by line breaks in a plain text (`.txt`) document. The `parse_utils.xml_to_section` function parses a document into sections and extracts the text.
-
-* Desired output
-
-For each comparison A to B, we want a result that consists of pairs of matching sections; similarity score for each matching section pair; a whole document-to-document similarity score. Each section has a unique ID, so the result could look like:
-
-```javascript
-doc_score: .8,
-
-from: [{
-id: af82329rth3,
-id_match: 8373aten715n,
-score: .3
-  }....],
-  
-to: [{
-id: 8373aten715n,
-id_match: af82329rth3,
-score: .3 // it is possible that B->A score would be different from A->B score
-   }]
-```
-
-* Fast pairwise similarity
-
-The similarity algorithm should be *fast* in calculating similarity between documents. Ideally, the methodology may require some pre-processing of individual documents (e.g. calculating vector representation for document A), and then quickly calculate pairwise similarity between document A and the ~ 50,000 documents in the corpus.
-
-* Accurate section or paragraph matching and similarity percentage
-
-The matching accuracy between sections should be as accurate as possible, given the desire for fast pairwise performance.
-
-### Samples
-
-Sample XML files (enrolled bills) can be found in the `samples` directory, in `samples/congress/116/uslm`. A text version of the samples, with each section separated by `/n*****/n` is found in `samples/congress/116/txt/`.
-
-## Approaches
-
-### Ngram vector
-
-In `parse_utils` we're using `sklearn` to extract ngrams, and nltk to tokenize text. The idea is to create an index of n-grams (initially 4-grams); then convert each paragraph to a vector of n-gram counts. Using this, we can compute the cosine similarity between two paragraphs.
-
-### Universal Sentence Encoder
-
-Installed:
-https://github.com/MartinoMensio/spacy-universal-sentence-encoder
 
 
-https://tfhub.dev/google/universal-sentence-encoder/embeddings 
 
-https://colab.research.google.com/github/tensorflow/hub/blob/master/examples/colab/semantic_similarity_with_tf_hub_universal_encoder.ipynb#scrollTo=BnvjATdy64eR
-
-
->>> import tensorflow_hub as hub
->>> embed = hub.load("https://tfhub.dev/google/universal-sentence-encoder/4")
-2021-10-07 23:08:16.308543: I tensorflow/core/platform/cpu_feature_guard.cc:142] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  AVX2 FMA
-To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
-2021-10-07 23:08:18.864039: I tensorflow/compiler/mlir/mlir_graph_optimization_pass.cc:185] None of the MLIR Optimization Passes are enabled (registered 2)
->>> embeddings = embed([
-...     "The quick brown fox jumps over the lazy dog.",
-...     "I am a sentence for which I would like to get its embedding",
-...     "This is a sentence for which I would like to get its embedding"])
->>> print(embeddings)
-tf.Tensor(
-[[-0.03133018 -0.06338634 -0.01607502 ... -0.03242778 -0.04575741
-   0.05370456]
- [ 0.0508086  -0.01652428  0.01573781 ...  0.00976659  0.03170123
-   0.01788119]], shape=(2, 512), dtype=float32)
->>> import numpy as np
->>> np.inner(embeddings, embeddings)
-array([[1.0000001 , 0.01492006],
-       [0.01492006, 1.0000002 ]], dtype=float32)
-
-For files:
->>> with open("docsample1_117hr1ih.txt", "r") as f:
-...     embeddings1 = embed(f.readlines())
-... 
->>> with open("docsample2_117hr1eh.txt", "r") as f:
-...     embeddings2 = embed(f.readlines())
-
->>> import numpy as np
->>> t = np.inner(embeddings1,embeddings2)
->>> t
-array([[ 2.23109454e-01,  1.39831692e-01,  1.61738217e-01, ...,
-        -4.86654267e-02, -2.00954545e-02, -2.32210048e-02],
-       [ 1.53501749e-01,  4.01088856e-02,  4.70234193e-02, ...,
-
-(takes about 10 seconds to calculate the inner product)
+1. Created document and sections data list after xml document level and section level parsing
+2. Created pandas_dataframe for storing bill document and sections data with their ID and Text
+3. Save Vocabulary Corpus of Bill Documents and Section to Parquet File
+4. Train Count Vectorizer for Bill Documents and Sections using Pandas Dataframe
+5. Store Train Count Vectorizer for Bill Documents and Sections using Pandas Dataframe
+6. Created vectorized dataframe for Bill Documents and Sections from trained model
+7. Stored vectorized dataframe for Bill Documents and Sections into Parquet File
+8. Loads the dataframe to memory
+9. Calculates the similarity score for a batch of documents by multiplying the panda dataframe for that batch vs. the dataframe for the full data set.
+10. Enter any Bill ID to find similarity using matrix multiplication of [bill1]*[ALL BILLS] to calculate all similiarities at once.
+11. Filters the results by two thresholds: a) threshold for whole bill and b) threshold for sections.    
+    
