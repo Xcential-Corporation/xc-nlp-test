@@ -5,7 +5,7 @@ import time
 import pickle
 import re, string
 import os
-from os import path, listdir
+from os import path, walk, listdir
 from pathlib import Path
 from os.path import isfile, join
 from types import new_class
@@ -21,10 +21,10 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 # Among the larger bills is samples/congress/116/BILLS-116s1790enr.xml (~ 10MB)
 
-PATH_116_USLM = 'data/samples/congress/116/uslm'
-PATH_117_USLM = 'data/samples/congress/117/uslm'
-PATH_116_USLM_TRAIN = 'data/samples/congress/116/train'
-PATH_116_TEXT = 'data/samples/congress/116/txt'
+PATH_116_USLM = 'samples/congress/116/uslm'
+PATH_117_USLM = 'samples/congress/117'
+PATH_116_USLM_TRAIN = 'samples/congress/116/train'
+PATH_116_TEXT = 'samples/congress/116/txt'
 
 BILLS_SAMPLE = [f'BILLS-116hr{number}ih.xml' for number in range(100, 300)]
 BIG_BILLS = ['BILLS-116s1790enr.xml', 'BILLS-116hjres31enr.xml']
@@ -38,7 +38,12 @@ NAMESPACES = {'uslm': 'http://xml.house.gov/schemas/uslm/1.0'}
 
 
 def get_filepaths(dirpath: str, reMatch = r'.xml$') -> List[str]:
-    return [join(dirpath, f) for f in listdir(dirpath) if (len(re.findall(reMatch, f)) > 0) and isfile(join(dirpath, f))]
+    filepaths = []
+    for (dirpath, dirnames, filenames) in walk(dirpath):
+        for filename in filenames:
+            if re.search(reMatch, filename):
+                filepaths.append(path.join(dirpath, filename))
+    return filepaths 
 
 def getEnum(section) -> str:
   enumpath = section.xpath('enum')  
